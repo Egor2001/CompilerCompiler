@@ -1,0 +1,37 @@
+%{
+    <imm> 0|[\d]
+    <lit> [\w_]{\w\d_}
+%}
+
+%{
+    <imm>
+    {
+        YYLVAL = std::from_bytes(YYTEXT);
+    }
+%}
+
+%{
+    <if> ::= 'if''('<expr>')'<block>['else'<block>]
+    <while> ::= 'while''('<expr>')'<block>
+    <expr> ::= <add-sub>|'('<add-sub>')'
+    <add-sub> ::= <mul-div>|<mul-div>'+'<add-sub>|<mul-div>'-'<add-sub>
+    <mul-div> ::= <unitary>|<unitary>'*'<mul-div>|<unitary>'/'<mul-div>
+    <unitary> ::= <imm>|<lit>|<call>
+    <call> ::= <lit>'('[<expr>{','<expr>}]')'
+    <var> ::= 'var'<lit>
+    <def> ::= 'def'<lit>'('<arglist>')'
+    <arglist> ::= ['def'<lit>{',''def'<lit>}]
+%}
+
+<number> 
+%{ 
+    yylval = std::from_bytes(yytext); 
+    return TOK_NUM; 
+%}
+
+<literal> 
+%{ 
+    yylval = yytext; 
+    return TOK_LIT;
+%} 
+
