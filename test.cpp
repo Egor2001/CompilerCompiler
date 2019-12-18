@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 //#include "CFlexxer.h"
 //#include "CBuilder.h"
@@ -55,14 +56,17 @@ int main()
         "%}"
     );
 
+    auto flexx_out = std::ofstream("flexxer.h");
+    auto huyacc_out = std::ofstream("huyaccer.h");
+
     CParser parser;
     CFlexx flexx;
     CHuyacc huyacc;
 
     const auto& lexem_vec_ref = parser.parse(flexx_text);
     parser.print(std::cout);
-    flexx.flexx(lexem_vec_ref, std::cout);
-    huyacc.huyacc(lexem_vec_ref, std::cout);
+    flexx.flexx(lexem_vec_ref, flexx_out);
+    huyacc.huyacc(lexem_vec_ref, huyacc_out);
 
     return 0;
 }

@@ -110,7 +110,7 @@ template<typename TStream>
 void SLexTerm::build_parse(TStream& out_stream) const
 {
     out_stream << "std::make_shared<SLexem>(SLexTerm(";
-    out_stream << name_view;
+    out_stream << "\"" << name_view << "\"";
     out_stream << "))";
 }
 
