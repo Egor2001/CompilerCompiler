@@ -1,6 +1,10 @@
 #bin
 bin/
 
+#tags
+tags
+*.tags
+
 # Prerequisites
 *.d
 

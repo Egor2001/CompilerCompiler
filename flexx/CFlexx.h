@@ -20,6 +20,13 @@ public:
 
 private:
     template<typename TStream>
+    bool flexx_main(const std::vector<SParseTerm>& term_vec,
+                    TStream& out_stream); 
+    template<typename TStream>
+    bool flexx_funclexem(const std::vector<SParseTerm>& term_vec,
+                         TStream& out_stream); 
+
+    template<typename TStream>
     bool flexx_includes(TStream& out_stream);
     template<typename TStream>
     bool flexx_structure(TStream& out_stream);
@@ -52,8 +59,8 @@ bool CFlexx::flexx(const std::vector<SParseTerm>& term_vec,
     out_stream << "#ifndef FLEXXER_H" "\n";
     out_stream << "#define FLEXXER_H" "\n";
 
-    if (!flexx_includes(out_stream))         return false;
-    if (!flexx_structure(out_stream))        return false;
+    if (!flexx_includes(out_stream))        return false;
+    if (!flexx_structure(out_stream))       return false;
     if (!flexx_enum(term_vec, out_stream))  return false;
     if (!flexx_array(term_vec, out_stream)) return false;
 
@@ -61,7 +68,72 @@ bool CFlexx::flexx(const std::vector<SParseTerm>& term_vec,
         if (!flexx_function(term, out_stream)) 
             return false;
 
+    if (!flexx_funclexem(term_vec, out_stream)) return false;
+    if (!flexx_main(term_vec, out_stream))      return false;
+
     out_stream << "#endif //FLEXXER_H" "\n";
+
+    return true;
+}
+
+template<typename TStream>
+bool CFlexx::flexx_main(const std::vector<SParseTerm>& term_vec,
+                        TStream& out_stream)
+{
+    out_stream << 
+    "std::size_t flexx(std::string_view text_view,\n"
+    "                  std::vector<YYTERM>& flexx_vec)" "\n"
+    "{\n"
+    "    std::size_t result = 0u;" "\n"
+    "    std::size_t skip = 0u;" "\n"
+    "    while ((skip = flexx_lexem(text_view, flexx_vec)))" "\n"
+    "    {\n"
+    "        text_view.remove_prefix(skip);" "\n"
+    "        result += skip;" "\n"
+    "        \n"
+    "        skip = text_view.find_first_not_of(\" \\t\\r\\n\");" "\n"
+    "        text_view.remove_prefix(std::min(skip, text_view.size()));" "\n"
+    "        result += skip;" "\n"
+    "    }\n"
+    "    \n"
+    "    return result;" "\n"
+    "}\n";
+
+    return true;
+}
+
+template<typename TStream>
+bool CFlexx::flexx_funclexem(const std::vector<SParseTerm>& term_vec,
+                             TStream& out_stream)
+{
+    out_stream << 
+    "std::size_t flexx_lexem(const std::string_view& text_view,\n"
+    "                        std::vector<YYTERM>& flexx_vec)" "\n"
+    "{\n"
+    "    std::size_t result = 0u;" "\n"
+    "    YYTERM cur_term = {};" "\n";
+
+    for (const auto& term : term_vec)
+    {
+        out_stream << 
+        "    if (GlobalTermArray[TERM_" << term.name_view << "]"
+        ".try_match(text_view) && " "\n" <<
+        "        GlobalTermArray[TERM_" << term.name_view << "]"
+        ".expr.size() > result)" "\n"
+        "    {\n"
+        "        result = GlobalTermArray[TERM_" << term.name_view << "]"
+        ".expr.size();" "\n"
+        "        cur_term = flexx_" << term.name_view << 
+        "(text_view.substr(0u, result));" "\n"
+        "    }\n";
+    }
+
+    out_stream << 
+    "    if (result)" "\n"
+    "        flexx_vec.push_back(cur_term);" "\n"
+    "    \n"
+    "    return result;" "\n"
+    "}\n";
 
     return true;
 }
@@ -69,8 +141,12 @@ bool CFlexx::flexx(const std::vector<SParseTerm>& term_vec,
 template<typename TStream>
 bool CFlexx::flexx_includes(TStream& out_stream)
 {
+    out_stream << "#include <string_view>" "\n";
+    //out_stream << "#include <regex>" "\n";
     out_stream << "#include <vector>" "\n";
-    out_stream << "#include \"STerm.h\"" "\n";
+    out_stream << "#include <array>" "\n";
+    out_stream << "#include \"SFlexxTerm.h\"" "\n";
+    out_stream << "using YYTERM = SFlexxTerm;" "\n";
 
     return true;
 }
@@ -78,11 +154,24 @@ bool CFlexx::flexx_includes(TStream& out_stream)
 template<typename TStream>
 bool CFlexx::flexx_structure(TStream& out_stream)
 {
-    out_stream << "struct STerm" "\n";
-    out_stream << "{\n";
-    out_stream << "    std::string_view name;\n";
-    out_stream << "    std::regex expr;\n";
-    out_stream << "};\n";
+    out_stream << "struct STerm" "\n"
+                  "{\n"
+                  "    bool try_match"
+                      "(const std::string_view& text_view) const;\n"
+                  "    \n"
+                  "    std::string_view name;\n"
+                  "    std::string_view expr;\n"
+                  "};\n";
+
+    out_stream << "bool STerm::try_match"
+                  "(const std::string_view& text_view) const" "\n"
+                  "{\n"
+                  "    bool result = false;" "\n"
+                  "    if (text_view.compare(0u, expr.size(), expr) == 0)" "\n"
+                  "        result = true;" "\n"
+                  "    " "\n"
+                  "    return result;" "\n"
+                  "}\n";
 
     return true;
 }
@@ -107,7 +196,7 @@ bool CFlexx::flexx_array(const std::vector<SParseTerm>& term_vec,
                          TStream& out_stream)
 {
     out_stream << "const std::array<STerm, TERMS_CNT>";
-    out_stream << " = {" "\n";
+    out_stream << "GlobalTermArray = {" "\n";
     out_stream << "    {\n";
     for (const auto& term : term_vec)
     {
@@ -137,9 +226,10 @@ bool CFlexx::flexx_instance(const SParseTerm& term,
 {
     out_stream << "\t";
     out_stream << "{ ";
-    out_stream << term.name_view;
+    out_stream << "\""  << term.name_view << "\"";
     out_stream << ", ";
-    out_stream << "std::regex(\"" << term.expr_view << "\") ";
+    //out_stream << "std::regex(\"" << term.expr_view << "\") ";
+    out_stream << "\"" << term.expr_view << "\" ";
     out_stream << "}";
     
     return true;
@@ -149,23 +239,13 @@ template<typename TStream>
 bool CFlexx::flexx_function(const SParseTerm& term,
                             TStream& out_stream)
 {
-    out_stream << "bool " << term.name_view << "_match";
-    out_stream << "(const std::string_view& YYTEXT)\n";
-    out_stream << "{\n";
-    out_stream << "    bool result = false;" "\n";
-    out_stream << "    if (std::regex_match(YYTEXT, YYREGEX))" "\n";
-    out_stream << "        result = true;" "\n";
-    out_stream << "    " "\n";
-    out_stream << "    return result;" "\n";
-    out_stream << "}\n";
-
-    out_stream << "YYTYPE " << term.name_view << "_value";
-    out_stream << "(const std::string_view& YYTEXT)\n";
-    out_stream << "{\n";
-    out_stream << "    YYTYPE YYLVAL;" "\n";
-    out_stream <<      term.code_view << "\n";  
-    out_stream << "    return YYLVAL;" "\n";
-    out_stream << "}\n";
+    out_stream << "YYTERM " "flexx_" << term.name_view << 
+                  "(const std::string_view& YYTEXT)\n"
+                  "{\n"
+                  "    YYTERM YYLVAL = {};" "\n";
+    out_stream <<      term.code_view << "\n"  
+                  "    return YYLVAL;" "\n"
+                  "}\n";
     
     return true;
 }

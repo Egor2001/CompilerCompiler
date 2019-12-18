@@ -10,6 +10,7 @@
 int main()
 {
     auto flexx_text = std::string_view(
+/*
         "%{\n"
             "<imm> [1-9]{\\d}\n    \n\r\t" 
             "${" "\n"
@@ -25,6 +26,28 @@ int main()
             "<op> \\+|\\-|\\*|\\/|\\%|\\=\n\r \t"
             "${ " "\n"
             "    YYLVAL = std::string_view(YYTEXT).front();" "\n"
+            "$}" "\n"
+        "%}"
+*/
+        "%{\n"
+            "<imm> imm\n    \n\r\t" 
+            "${" "\n"
+            "    YYLVAL.name = std::string(\"[imm]\");" "\n"
+            "$}" "\n"
+
+            "<if> if\n    \n\r\t" 
+            "${" "\n"
+            "    YYLVAL.name = std::string(\"[if]\");" "\n"
+            "$}" "\n"
+
+            "<lit> lit\n\r \t"
+            "${ " "\n"
+            "    YYLVAL.name = std::string(\"[lit]\");" "\n"
+            "$}" "\n"
+
+            "<op> op\n\r \t"
+            "${ " "\n"
+            "    YYLVAL.name = std::string(\"[op]\");" "\n"
             "$}" "\n"
         "%}"
 
