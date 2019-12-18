@@ -2,12 +2,11 @@
 #define CPARSER_H
 
 #include <vector>
-#include <type_traits>
-#include <variant>
 #include <optional>
 #include <string_view>
 
-#include "SParseLexem.h"
+#include "SParseTerm.h"
+#include "SParseRule.h"
 
 //namespace huyacc {
 
@@ -16,8 +15,10 @@ class CParser
 public:
     CParser() = default;
 
-    const std::vector<SParseLexem>& 
-    parse(const std::string_view& text_view);
+    bool parse(const std::string_view& text_view);
+
+    const std::vector<SParseTerm>& term_vec() const noexcept;
+    const std::vector<SParseRule>& rule_vec() const noexcept;
 
     template<typename TStream>
     void print(TStream& out_stream) const;
@@ -37,66 +38,65 @@ private:
     void parse_void();
 
 private:
-    std::vector<SParseLexem> lexem_vec_;
+    std::vector<SParseTerm> term_vec_;
+    std::vector<SParseRule> rule_vec_;
 
     std::string_view text_view_;
 };
 
-const std::vector<SParseLexem>& 
-CParser::parse(const std::string_view& text_view_set)
+bool CParser::parse(const std::string_view& text_view_set)
 {
     text_view_ = text_view_set;
 
     bool is_init = parse_init();
     if (!is_init)
     {
-        lexem_vec_.clear();
-        return lexem_vec_;
+        term_vec_.clear();
+        return false;
     }
 
     bool is_body = parse_body();
     if (!is_body)
     {
-        lexem_vec_.clear();
-        return lexem_vec_;
+        rule_vec_.clear();
+        return false;
     }
 
-    return lexem_vec_;
+    return true;
+}
+
+const std::vector<SParseTerm>& 
+CParser::term_vec() const noexcept
+{
+    return term_vec_;
+}
+
+const std::vector<SParseRule>& 
+CParser::rule_vec() const noexcept
+{
+    return rule_vec_;
 }
 
 template<typename TStream>
 void CParser::print(TStream& out_stream) const
 {
-    auto visitor = [&out_stream](const auto& lexem) mutable
+    for (const auto& term : term_vec_)
     {
-        using lex_t = std::remove_cv_t<
-                          std::remove_reference_t<
-                              decltype(lexem)
-                              >
-                          >;
+        out_stream << "(TERM <" << term.name_view << "> " <<
+                   term.expr_view << "\n" 
+                   "{" << 
+                   term.code_view << 
+                   "})\n";
+    }
 
-        if constexpr (std::is_same_v<lex_t, SParseTerm>)
-        {
-            out_stream << "(TERM <" << lexem.name_view << "> " <<
-                       lexem.expr_view << "\n" 
-                       "{" << 
-                       lexem.code_view << 
-                       "})\n";
-        }
-        else if constexpr (std::is_same_v<lex_t, SParseRule>)
-        {
-            out_stream << "(RULE <" << lexem.name_view << "> ::= " <<
-                       lexem.expr_view << "\n" 
-                       "{" << 
-                       lexem.code_view << 
-                       "})\n";
-        }
-        else
-            out_stream << "(NIL)" "\n";
-    };
-
-    for (const auto& lexem : lexem_vec_)
-        std::visit(visitor, lexem.data);
+    for (const auto& rule : rule_vec_)
+    {
+        out_stream << "(RULE <" << rule.name_view << "> ::= " <<
+                   rule.expr_view << "\n" 
+                   "{" << 
+                   rule.code_view << 
+                   "})\n";
+    }
 }
 
 bool CParser::parse_init()
@@ -145,7 +145,7 @@ bool CParser::parse_term()
     term.code_view = parse_code().value_or("");
     //std::cout << "term.code" "\n";
 
-    lexem_vec_.push_back(term);
+    term_vec_.push_back(term);
 
     return true;
 }
@@ -169,7 +169,7 @@ bool CParser::parse_rule()
     rule.code_view = parse_code().value_or("");
     //std::cout << "rule.code" "\n";
 
-    lexem_vec_.push_back(rule);
+    rule_vec_.push_back(rule);
 
     return true;
 }

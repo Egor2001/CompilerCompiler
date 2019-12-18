@@ -63,10 +63,10 @@ int main()
     CFlexx flexx;
     CHuyacc huyacc;
 
-    const auto& lexem_vec_ref = parser.parse(flexx_text);
+    parser.parse(flexx_text);
     parser.print(std::cout);
-    flexx.flexx(lexem_vec_ref, flexx_out);
-    huyacc.huyacc(lexem_vec_ref, huyacc_out);
+    flexx.flexx(parser.term_vec(), flexx_out);
+    huyacc.huyacc(parser.rule_vec(), huyacc_out);
 
     return 0;
 }
