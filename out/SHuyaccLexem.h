@@ -124,7 +124,7 @@ struct SHuyaccLexem
                  SHuyaccLexXor, SHuyaccLexCat,
                  SHuyaccLexRep, SHuyaccLexOpt> data;
 };
-
+/*
 bool SHuyaccLexXor::try_match(const std::vector<SLexem>& term_vec,
                               SMatchContext& context) const
 {
@@ -240,11 +240,17 @@ bool SHuyaccLexRule::try_match(const std::vector<SLexem>& term_vec,
 {
     bool result = false;
 
-    if (term_vec[context.term_idx].type == rule_type)
+    SMatchContext new_context =  
     {
-        auto term = term_vec[context.term_idx].term;
-        auto new_node = std::make_shared<SHuyaccNode>(term);
+        .term_idx = context.term_idx,
+        .node_vec = {}
+    };
+
+    if (GlobalRuleArray[rule_type]->try_match(term_vec, new_context))
+    {
+        auto new_node = build_huyacc_node(rule_type, new_context.node_vec);
         context.node_vec.push_back(new_node);
+        context.term_idx = new_context.term_idx;
     }
     else
     {
@@ -253,7 +259,7 @@ bool SHuyaccLexRule::try_match(const std::vector<SLexem>& term_vec,
 
     return result;
 }
-
+*/
 
 //}
 

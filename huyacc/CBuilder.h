@@ -4,6 +4,7 @@
 #include <variant>
 #include <vector>
 
+#include "CBuilderContext.h"
 #include "SLexem.h"
 
 //namespace {
@@ -12,6 +13,7 @@ class CBuilder
 {
 public:
     CBuilder() = default;
+    explicit CBuilder(CBuilderContext&& context_set);
 
     std::shared_ptr<SLexem> 
     parse(const std::string_view& rule_view_set);
@@ -31,7 +33,14 @@ private:
 
 private:
     std::string_view rule_view_;
+
+    CBuilderContext context_;
 };
+
+CBuilder::CBuilder(CBuilderContext&& context_set):
+    rule_view_(),
+    context_(std::move(context_set))
+{}
 
 std::shared_ptr<SLexem> 
 CBuilder::parse(const std::string_view& rule_view_set)
@@ -130,7 +139,12 @@ std::shared_ptr<SLexem> CBuilder::parse_tok()
         name_view = parse_name();
         if (!skip(">")) return result;
 
-        result = std::make_shared<SLexem>(SLexTerm(name_view));
+        if (context_.is_term(name_view))
+            result = std::make_shared<SLexem>(SLexTerm(name_view));
+        else if (context_.is_rule(name_view))
+            result = std::make_shared<SLexem>(SLexRule(name_view));
+        else
+            return nullptr;
     }
     else
         return nullptr;

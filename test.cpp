@@ -127,16 +127,30 @@ int main()
 
     auto test_text = std::string_view(
         "%{\n"
+        /*
             "<test> test\n\r \t"
             "${ " "\n"
-            "    YYLVAL = std::string(\"[test]\");" "\n"
+            "    YYLVAL = {};" "\n"
             "$}" "\n"
+        */
         "%}"
 
         "%{"
-            "<test> ::= <lit>\n"
+            "<test_rule> ::= <lit_rule>|<imm_rule>\n"
             "${ " "\n"
-            "    YYLVAL = std::to_string(YYLIST.size());" "\n"
+            "    YYLVAL = YYLIST[0];" "\n"
+            "$}" "\n"
+
+            "<lit_rule> ::= <lit>\n"
+            "${ " "\n"
+            "    auto name_str = std::to_string(YYLIST.size());" "\n"
+            "    YYLVAL = YYNODE(SFlexxTerm(std::move(name_str)));" "\n"
+            "$}" "\n"
+
+            "<imm_rule> ::= <imm>\n"
+            "${ " "\n"
+            "    auto name_str = std::to_string(YYLIST.size());" "\n"
+            "    YYLVAL = YYNODE(SFlexxTerm(std::move(name_str)));" "\n"
             "$}" "\n"
         "%}"
     );
@@ -152,7 +166,7 @@ int main()
     parser.parse(test_text);
     parser.print(std::cout);
     flexx.flexx(parser.term_vec(), flexx_out);
-    huyacc.huyacc(parser.rule_vec(), huyacc_out);
+    huyacc.huyacc(parser.term_vec(), parser.rule_vec(), huyacc_out);
 
     return 0;
 }
