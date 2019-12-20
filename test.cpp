@@ -10,71 +10,133 @@
 int main()
 {
     auto flexx_text = std::string_view(
-/*
         "%{\n"
-            "<imm> [1-9]{\\d}\n    \n\r\t" 
+            "<call> call\n"
             "${" "\n"
-            "    std::size_t val = std::from_bytes(YYTEXT);" "\n"
-            "    YYLVAL = val;" "\n"
+            "    YYLVAL = std::string(\"[call]\");" "\n"
             "$}" "\n"
-
-            "<lit> [_a-zA-Z]{\\w}\n\r \t"
-            "${ " "\n"
-            "    YYLVAL = std::string_view(YYTEXT);" "\n"
+            
+            "<expr> expr\n"
+            "${" "\n"
+            "    YYLVAL = std::string(\"[expr]\");" "\n"
             "$}" "\n"
-
-            "<op> \\+|\\-|\\*|\\/|\\%|\\=\n\r \t"
-            "${ " "\n"
-            "    YYLVAL = std::string_view(YYTEXT).front();" "\n"
+            
+            "<block> block\n"
+            "${" "\n"
+            "    YYLVAL = std::string(\"[block]\");" "\n"
             "$}" "\n"
-        "%}"
-*/
-        "%{\n"
+            
+            "<if> if\n"
+            "${" "\n"
+            "    YYLVAL = std::string(\"[if]\");" "\n"
+            "$}" "\n"
+/*
             "<imm> imm\n    \n\r\t" 
             "${" "\n"
             "    YYLVAL.name = std::string(\"[imm]\");" "\n"
             "$}" "\n"
-
-            "<if> if\n    \n\r\t" 
+*/
+            "<if_kwd> if\n    \n\r\t" 
             "${" "\n"
-            "    YYLVAL.name = std::string(\"[if]\");" "\n"
+            "    YYLVAL = std::string(\"[if]\");" "\n"
             "$}" "\n"
-
+/*
             "<lit> lit\n\r \t"
             "${ " "\n"
             "    YYLVAL.name = std::string(\"[lit]\");" "\n"
             "$}" "\n"
-
+*/
             "<op> op\n\r \t"
             "${ " "\n"
-            "    YYLVAL.name = std::string(\"[op]\");" "\n"
+            "    YYLVAL = std::string(\"[op]\");" "\n"
+            "$}" "\n"
+
+            "<delim> delim\n\r \t"
+            "${ " "\n"
+            "    YYLVAL = std::string(\"[delim]\");" "\n"
+            "$}" "\n"
+
+            "<brc_beg> brc_beg\n\r \t"
+            "${ " "\n"
+            "    YYLVAL = std::string(\"[brc_beg]\");" "\n"
+            "$}" "\n"
+
+            "<brc_end> brc_end\n\r \t"
+            "${ " "\n"
+            "    YYLVAL = std::string(\"[brc_end]\");" "\n"
+            "$}" "\n"
+
+            "<bkt_beg> bkt_beg\n\r \t"
+            "${ " "\n"
+            "    YYLVAL = std::string(\"[bkt_beg]\");" "\n"
+            "$}" "\n"
+
+            "<bkt_end> bkt_end\n\r \t"
+            "${ " "\n"
+            "    YYLVAL = std::string(\"[bkt_end]\");" "\n"
+            "$}" "\n"
+
+            "<def> def\n\r \t"
+            "${ " "\n"
+            "    YYLVAL = std::string(\"[def]\");" "\n"
+            "$}" "\n"
+
+            "<while> while\n\r \t"
+            "${ " "\n"
+            "    YYLVAL = std::string(\"[while]\");" "\n"
+            "$}" "\n"
+
+            "<test> test\n\r \t"
+            "${ " "\n"
+            "    YYLVAL = std::string(\"[test]\");" "\n"
             "$}" "\n"
         "%}"
 
         "%{"
-            "<call> ::= "
-            "    <lit><\"(\">[<expr>{<\",\"><expr>}]<\")\">\n"
+            "<test> ::= <lit>\n"
             "${ " "\n"
-            "    YYLVAL = SCall(YYLIST);" "\n"
+            "    YYLVAL = YYLIST[2];" "\n"
+            "$}" "\n"
+
+            "<call> ::= "
+            "    <lit><brc_beg>[<expr>{<delim><expr>}]<brc_end>\n"
+            "${ " "\n"
+            "    YYLVAL = std::to_string(YYLIST.size());" "\n"
             "$}" "\n"
 
             "<expr> ::= "
             "    (<imm>|<lit>|<call>)"
-            "    [<op><expr>]|<\"(\"><expr><\")\">\n"
+            "    [<op><expr>]|<brc_beg><expr><brc_end>\n"
             "${ " "\n"
-            "    YYLVAL = SExpr(YYLIST);" "\n"
+            "    YYLVAL = std::to_string(YYLIST.size());" "\n"
             "$}" "\n"
 
             "<block> ::= "
-            "    <\"{\">{<expr>|<def>|<if>|<while>}<\"}\">\n"
+            "    <bkt_beg>{<expr>|<def>|<if>|<while>}<bkt_end>\n"
             "${ " "\n"
-            "    YYLVAL = SBlock(YYLIST);" "\n"
+//            "    YYLVAL = SBlock(YYLIST);" "\n"
             "$}" "\n"
 
             "<if> ::= "
-            "    <\"if\"><\"(\"><expr><\")\"><block>\n"
+            "    <if_kwd><brc_beg><expr><brc_end><block>\n"
             "${ " "\n"
-            "    YYLVAL = SIf(YYLIST);" "\n"
+//            "    YYLVAL = SIf(YYLIST);" "\n"
+            "$}" "\n"
+        "%}"
+    );
+
+    auto test_text = std::string_view(
+        "%{\n"
+            "<test> test\n\r \t"
+            "${ " "\n"
+            "    YYLVAL = std::string(\"[test]\");" "\n"
+            "$}" "\n"
+        "%}"
+
+        "%{"
+            "<test> ::= <lit>\n"
+            "${ " "\n"
+            "    YYLVAL = std::to_string(YYLIST.size());" "\n"
             "$}" "\n"
         "%}"
     );
@@ -86,7 +148,8 @@ int main()
     CFlexx flexx;
     CHuyacc huyacc;
 
-    parser.parse(flexx_text);
+    //parser.parse(flexx_text);
+    parser.parse(test_text);
     parser.print(std::cout);
     flexx.flexx(parser.term_vec(), flexx_out);
     huyacc.huyacc(parser.rule_vec(), huyacc_out);

@@ -60,8 +60,8 @@ bool CFlexx::flexx(const std::vector<SParseTerm>& term_vec,
     out_stream << "#define FLEXXER_H" "\n";
 
     if (!flexx_includes(out_stream))        return false;
-    if (!flexx_structure(out_stream))       return false;
     if (!flexx_enum(term_vec, out_stream))  return false;
+    if (!flexx_structure(out_stream))       return false;
     if (!flexx_array(term_vec, out_stream)) return false;
 
     for (const auto& term : term_vec)
@@ -82,7 +82,7 @@ bool CFlexx::flexx_main(const std::vector<SParseTerm>& term_vec,
 {
     out_stream << 
     "std::size_t flexx(std::string_view text_view,\n"
-    "                  std::vector<YYTERM>& flexx_vec)" "\n"
+    "                  std::vector<SLexem>& flexx_vec)" "\n"
     "{\n"
     "    std::size_t result = 0u;" "\n"
     "    std::size_t skip = 0u;" "\n"
@@ -108,29 +108,70 @@ bool CFlexx::flexx_funclexem(const std::vector<SParseTerm>& term_vec,
 {
     out_stream << 
     "std::size_t flexx_lexem(const std::string_view& text_view,\n"
-    "                        std::vector<YYTERM>& flexx_vec)" "\n"
+    "                        std::vector<SLexem>& flexx_vec)" "\n"
     "{\n"
     "    std::size_t result = 0u;" "\n"
-    "    YYTERM cur_term = {};" "\n";
+    "    std::size_t subresult = 0u;" "\n"
+    "    SLexem cur_lexem = {};" "\n";
 
     for (const auto& term : term_vec)
     {
         out_stream << 
-        "    if (GlobalTermArray[TERM_" << term.name_view << "]"
-        ".try_match(text_view) && " "\n" <<
-        "        GlobalTermArray[TERM_" << term.name_view << "]"
-        ".expr.size() > result)" "\n"
+        "    if ((subresult = GlobalTermArray[TERM_" << term.name_view << "]"
+        ".try_match(text_view)) > result)" "\n"
         "    {\n"
-        "        result = GlobalTermArray[TERM_" << term.name_view << "]"
-        ".expr.size();" "\n"
-        "        cur_term = flexx_" << term.name_view << 
+        "        result = subresult;" "\n"
+        "        cur_lexem.type = TERM_" << term.name_view << ";\n"
+        "        cur_lexem.term = flexx_" << term.name_view << 
         "(text_view.substr(0u, result));" "\n"
         "    }\n";
     }
 
     out_stream << 
+    "    if (!text_view.empty() && "
+    "std::isalpha(text_view.front()))" "\n"
+    "    {\n"
+    "        subresult = 0u;" "\n"
+    "        while (subresult < text_view.size() &&" "\n"
+    "               std::isalnum(text_view[subresult]))" "\n"
+    "            ++subresult;" "\n"
+    "    \n"
+    "        if (subresult > result)" "\n"
+    "        {\n"
+    "            result = subresult;" "\n"
+    "            auto term_view = text_view.substr(0u, result);" "\n"
+    "            cur_lexem.type = TERM_lit;" "\n"
+    "            cur_lexem.term = SFlexxTerm("
+    "std::string(term_view.data(), term_view.size()));" "\n"
+    "        }\n"
+    "    }\n"
+    "    else if (!text_view.empty() && " "\n"
+    "             std::isdigit(text_view.front()))" "\n"
+    "    {\n"
+    "        subresult = 0u;" "\n"
+    "        while (subresult < text_view.size() &&" "\n"
+    "               std::isdigit(text_view[subresult]))" "\n"
+    "            ++subresult;" "\n"
+    "    \n"
+    "        if (subresult > result)" "\n"
+    "        {\n"
+    "            auto beg = text_view.data();" "\n"
+    "            auto end = text_view.data() + subresult;" "\n"
+    "            int32_t data = 0;" "\n"
+    "            auto [next_ptr, err_code] = "
+    "std::from_chars(beg, end, data);" "\n"
+    "            if (err_code == std::errc{})" "\n"
+    "            {\n"
+    "                result = subresult;" "\n"
+    "                cur_lexem.type = TERM_imm;" "\n"
+    "                cur_lexem.term = SFlexxTerm(data);" "\n"
+    "            }\n"
+    "        }\n"
+    "    }\n";
+
+    out_stream << 
     "    if (result)" "\n"
-    "        flexx_vec.push_back(cur_term);" "\n"
+    "        flexx_vec.push_back(cur_lexem);" "\n"
     "    \n"
     "    return result;" "\n"
     "}\n";
@@ -142,6 +183,7 @@ template<typename TStream>
 bool CFlexx::flexx_includes(TStream& out_stream)
 {
     out_stream << "#include <string_view>" "\n";
+    out_stream << "#include <charconv>" "\n";
     //out_stream << "#include <regex>" "\n";
     out_stream << "#include <vector>" "\n";
     out_stream << "#include <array>" "\n";
@@ -154,24 +196,34 @@ bool CFlexx::flexx_includes(TStream& out_stream)
 template<typename TStream>
 bool CFlexx::flexx_structure(TStream& out_stream)
 {
-    out_stream << "struct STerm" "\n"
-                  "{\n"
-                  "    bool try_match"
-                      "(const std::string_view& text_view) const;\n"
-                  "    \n"
-                  "    std::string_view name;\n"
-                  "    std::string_view expr;\n"
-                  "};\n";
+    out_stream << 
+    "struct SLexem" "\n"
+    "{\n"
+    "    ETermType type;" "\n"
+    "    YYTERM    term;" "\n"
+    "};\n";
 
-    out_stream << "bool STerm::try_match"
-                  "(const std::string_view& text_view) const" "\n"
-                  "{\n"
-                  "    bool result = false;" "\n"
-                  "    if (text_view.compare(0u, expr.size(), expr) == 0)" "\n"
-                  "        result = true;" "\n"
-                  "    " "\n"
-                  "    return result;" "\n"
-                  "}\n";
+    out_stream << 
+    "struct STerm" "\n"
+    "{\n"
+    "    std::size_t try_match"
+        "(const std::string_view& text_view) const;\n"
+    "    \n"
+    "    ETermType type;\n"
+    "    std::string_view name;\n"
+    "    std::string_view expr;\n"
+    "};\n";
+
+    out_stream << 
+    "std::size_t STerm::try_match"
+    "(const std::string_view& text_view) const" "\n"
+    "{\n"
+    "    std::size_t result = 0u;" "\n"
+    "    if (text_view.compare(0u, expr.size(), expr) == 0)" "\n"
+    "        result = expr.size();" "\n"
+    "    " "\n"
+    "    return result;" "\n"
+    "}\n";
 
     return true;
 }
@@ -185,7 +237,9 @@ bool CFlexx::flexx_enum(const std::vector<SParseTerm>& term_vec,
     for (const auto& term : term_vec)
         if (!flexx_enumitem(term, out_stream)) 
             return false;
-    out_stream << "\t" "TERMS_CNT" "\n";
+    out_stream << "\t" "TERMS_CNT," "\n";
+    out_stream << "\t" "TERM_lit," "\n";
+    out_stream << "\t" "TERM_imm" "\n";
     out_stream << "};" "\n";
 
     return true;
@@ -226,6 +280,8 @@ bool CFlexx::flexx_instance(const SParseTerm& term,
 {
     out_stream << "\t";
     out_stream << "{ ";
+    out_stream << "TERM_"  << term.name_view << "";
+    out_stream << ", ";
     out_stream << "\""  << term.name_view << "\"";
     out_stream << ", ";
     //out_stream << "std::regex(\"" << term.expr_view << "\") ";
