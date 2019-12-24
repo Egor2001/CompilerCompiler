@@ -127,6 +127,14 @@ int main()
 
     auto test_text = std::string_view(
         "%{\n"
+        "   <if_> if\n"
+        "   ${"
+        "       YYLVAL = KeywordToken(KW_IF);"
+        "   $}"
+        "   <while_> while\n"
+        "   ${"
+        "       YYLVAL = KeywordToken(KW_WHILE);"
+        "   $}"
         /*
             "<test> test\n\r \t"
             "${ " "\n"
@@ -136,6 +144,11 @@ int main()
         "%}"
 
         "%{"
+            "<if> ::= <if_><(><expr><)><block>[<else_><block>]\n"
+            "${ " "\n"
+            "    YYLVAL = YYLIST[0];" "\n"
+            "$}" "\n"
+
             "<test_rule> ::= <lit_rule>|<imm_rule>\n"
             "${ " "\n"
             "    YYLVAL = YYLIST[0];" "\n"
