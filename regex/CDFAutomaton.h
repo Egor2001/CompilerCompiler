@@ -2,17 +2,21 @@
 #define CDFAUTOMATON_H
 
 #include <cstdint>
+
+#include <unordered_map>
 #include <vector>
 
 //namespace {
 
+template<typename TSymb>
 class CDFAutomaton
 {
 public:
-    static const NULL_EDGE = static_cast<std::size_t>(-1);
-
-    CDFAutomaton(std::size_t alph_size_set, 
-                 std::size_t node_cnt_set);
+    explicit CDFAutomaton(std::size_t node_cnt_set);
+    CDFAutomaton(std::size_t node_cnt_set, 
+                 const std::vector<bool>& accepting_mask_set);
+    CDFAutomaton(std::size_t node_cnt_set, 
+                 std::vector<bool>&& accepting_mask_set);
 
     CDFAutomaton             (const CDFAutomaton&) = default;
     CDFAutomaton& operator = (const CDFAutomaton&) = default;
@@ -23,70 +27,105 @@ public:
     ~CDFAutomaton() = default;
 
     [[nodiscard]]
-    std::size_t size() const noexcept { return node_cnt_; }
+    std::size_t node_cnt() const noexcept { return node_cnt_; }
 
     [[nodiscard]]
-    std::size_t next(std::size_t node, std::size_t symb) const;
+    std::size_t next(std::size_t node, const TSymb& symb) const;
 
-    std::size_t add_node(bool accepting);
-    std::size_t add_edge(std::size_t node, 
-                         std::size_t dest, uint64_t symb);
+    CDFAutomaton& 
+    set_edge_vec(const TSymb& symb, 
+                 const std::vector<std::size_t>& edge_vec_set);
+    CDFAutomaton& 
+    set_edge_vec(const TSymb& symb, 
+                 std::vector<std::size_t>&& edge_vec_set);
 
-    bool set_accepting(std::size_t node, bool value = true);
+    CDFAutomaton& 
+    set_accepting_mask(const std::vector<bool>& accepting_mask_set); 
+    CDFAutomaton& 
+    set_accepting_mask(std::vector<bool>&& accepting_mask_set); 
 
 private:
-    std::size_t alph_size_;
     std::size_t node_cnt_;
-    std::vector<std::vector<uint64_t>> edge_map_;
-    std::vector<bool> accepting_vec_;
+    std::unordered_map<TSymb, std::vector<uint64_t>> edge_vec_map_;
+    std::vector<bool> accepting_mask_;
 };
 
-CDFAutomaton::CDFAutomaton(std::size_t alph_size_set, 
-                           std::size_t node_cnt_set):
-    alph_size_(alph_size_set),
+template<typename TSymb>
+CDFAutomaton<TSymb>::
+CDFAutomaton(std::size_t node_cnt_set):
     node_cnt_(node_cnt_set),
-    edge_map_(alph_size_),
-    accepting_vec_(alph_size_)
+    edge_vec_map_(),
+    accepting_mask_(node_cnt_)
+{}
+
+template<typename TSymb>
+CDFAutomaton<TSymb>::
+CDFAutomaton(std::size_t node_cnt_set,
+             const std::vector<bool>& accepting_mask_set):
+    node_cnt_(node_cnt_set),
+    edge_vec_map_(),
+    accepting_mask_(accepting_mask_set)
+{}
+
+template<typename TSymb>
+CDFAutomaton<TSymb>::
+CDFAutomaton(std::size_t node_cnt_set,
+             std::vector<bool>&& accepting_mask_set):
+    node_cnt_(node_cnt_set),
+    edge_vec_map_(),
+    accepting_mask_(std::move(accepting_mask_set))
+{}
+
+template<typename TSymb>
+std::size_t 
+CDFAutomaton<TSymb>::
+next(std::size_t node, const TSymb& symb) const
 {
-    for (auto& symb_map : edge_map_)
-    {
-        symb_map.resize(node_cnt_);
-        for (auto& edge : symb_map)
-            edge = NULL_EDGE;
-    }
+    std::size_t result = static_cast<std::size_t>(-1);
+
+    auto it = edge_vec_map_.find(symb);
+    if (it != edge_vec_map_.end() && node < node_cnt_)
+        result = it->second[node];
+
+    return result;
 }
 
-std::size_t CDFAutomaton::next(std::size_t node, std::size_t symb) const
+template<typename TSymb>
+CDFAutomaton<TSymb>&
+CDFAutomaton<TSymb>::
+set_edge_vec(const TSymb& symb, 
+             const std::vector<std::size_t>& edge_vec_set)
 {
-    return edge_map_[symb][node];
+    edge_vec_map_[symb] = edge_vec_set;
+    return (*this);
 }
 
-std::size_t CDFAutomaton::add_node(bool accepting)
+template<typename TSymb>
+CDFAutomaton<TSymb>&
+CDFAutomaton<TSymb>::
+set_edge_vec(const TSymb& symb, 
+             std::vector<std::size_t>&& edge_vec_set)
 {
-    ++node_cnt_;
-
-    accepting_vec_.push_back(accepting);
-    for (auto& symb_map : edge_map_)
-        symb_map.push_back(NULL_EDGE);
-
-    return node_cnt_;
+    edge_vec_map_[symb] = std::move(edge_vec_set);
+    return (*this);
 }
 
-std::size_t CDFAutomaton::add_edge(std::size_t node, 
-                                   std::size_t dest, std::size_t symb)
+template<typename TSymb>
+CDFAutomaton<TSymb>&
+CDFAutomaton<TSymb>::
+set_accepting_mask(const std::vector<bool>& accepting_mask_set)
 {
-    std::size_t old_symb = edge_map_[symb][node];
-    edge_map_[symb][node] = dest;
-
-    return old_symb;
+    accepting_mask_ = accepting_mask_set;
+    return (*this);
 }
 
-bool CDFAutomaton::set_accepting(std::size_t node, bool value)
+template<typename TSymb>
+CDFAutomaton<TSymb>&
+CDFAutomaton<TSymb>::
+set_accepting_mask(std::vector<bool>&& accepting_mask_set)
 {
-    bool old_value = accepting_vec_[node];
-    accepting_vec_[node] = value;
-
-    return old_value;
+    accepting_mask_ = std::move(accepting_mask_set);
+    return (*this);
 }
 
 //} //namespace

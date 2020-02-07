@@ -10,27 +10,36 @@
 #include <stack>
 #include <string_view>
 
-#include "CRegexNode.h"
-
 //namespace {
 
+template<typename TSymb>
 class CENFAutomaton;
 
-bool enfa_read_str(CENFAutomaton& enfa, std::string_view str);
+bool enfa_read_str(CENFAutomaton<char>& enfa, std::string_view str);
 
-CENFAutomaton make_str_enfa(std::size_t);
-CENFAutomaton make_opt_enfa(CENFAutomaton&&);
-CENFAutomaton make_rep_enfa(CENFAutomaton&&);
-CENFAutomaton make_sum_enfa(CENFAutomaton&&, 
-                            CENFAutomaton&&);
-CENFAutomaton make_cat_enfa(CENFAutomaton&&, 
-                            CENFAutomaton&&);
+template<typename TSymb>
+CENFAutomaton<TSymb> make_str_enfa(const TSymb&);
 
+template<typename TSymb>
+CENFAutomaton<TSymb> make_opt_enfa(CENFAutomaton<TSymb>&&);
+
+template<typename TSymb>
+CENFAutomaton<TSymb> make_rep_enfa(CENFAutomaton<TSymb>&&);
+
+template<typename TSymb>
+CENFAutomaton<TSymb> make_sum_enfa(CENFAutomaton<TSymb>&&, 
+                                   CENFAutomaton<TSymb>&&);
+
+template<typename TSymb>
+CENFAutomaton<TSymb> make_cat_enfa(CENFAutomaton<TSymb>&&, 
+                                   CENFAutomaton<TSymb>&&);
+
+template<typename TSymb>
 class CENFAutomaton
 {
 public:
     struct SNode;
-    typedef std::list<SNode>::iterator TIter; 
+    using TIter = typename std::list<SNode>::iterator; 
 
     //TODO: oh, fuck... (works only for valid iterators) 
     struct SNodeListItHash
@@ -44,7 +53,7 @@ public:
     struct SNode
     {
         std::unordered_set<TIter, SNodeListItHash> eps_edge_set;
-        std::unordered_map<std::size_t, TIter> edge_map;
+        std::unordered_map<TSymb, TIter> edge_map;
     };
 
 public:
@@ -69,7 +78,7 @@ public:
     next_enfa_eps(TIter);
 
     std::unordered_set<TIter, SNodeListItHash>
-    next_enfa_set(TIter, std::size_t);
+    next_enfa_set(TIter, const TSymb&);
 
     std::unordered_map<TIter, std::size_t, SNodeListItHash> 
     node_list_map();
@@ -78,23 +87,25 @@ public:
     node_list_vec();
 
 private:
-    std::size_t alph_size_;
     std::list<SNode> node_list_;
 };
 
-CENFAutomaton::CENFAutomaton():
+template<typename TSymb>
+CENFAutomaton<TSymb>::CENFAutomaton():
     node_list_(std::list<SNode>(2u))
 {}
 
-CENFAutomaton::CENFAutomaton(std::list<SNode>&& move_node_list):
+template<typename TSymb>
+CENFAutomaton<TSymb>::CENFAutomaton(std::list<SNode>&& move_node_list):
     node_list_(std::move(move_node_list))
 {}
 
-std::unordered_set<CENFAutomaton::TIter, 
-                   CENFAutomaton::SNodeListItHash>
-CENFAutomaton::next_enfa_eps(CENFAutomaton::TIter it)
+template<typename TSymb>
+std::unordered_set<typename CENFAutomaton<TSymb>::TIter, 
+                   typename CENFAutomaton<TSymb>::SNodeListItHash>
+CENFAutomaton<TSymb>::next_enfa_eps(CENFAutomaton<TSymb>::TIter it)
 {
-    std::unordered_set<TIter, CENFAutomaton::SNodeListItHash> result;
+    std::unordered_set<TIter, SNodeListItHash> result;
     result.insert(it);
 
     std::stack<TIter> dfs_stack;
@@ -118,11 +129,13 @@ CENFAutomaton::next_enfa_eps(CENFAutomaton::TIter it)
     return result;
 }
 
-std::unordered_set<CENFAutomaton::TIter, 
-                   CENFAutomaton::SNodeListItHash>
-CENFAutomaton::next_enfa_set(CENFAutomaton::TIter it, std::size_t symb)
+template<typename TSymb>
+std::unordered_set<typename CENFAutomaton<TSymb>::TIter, 
+                   typename CENFAutomaton<TSymb>::SNodeListItHash>
+CENFAutomaton<TSymb>::next_enfa_set(CENFAutomaton<TSymb>::TIter it, 
+                                    const TSymb& symb)
 {
-    std::unordered_set<TIter, CENFAutomaton::SNodeListItHash> result;
+    std::unordered_set<TIter, SNodeListItHash> result;
 
     auto eps_set = next_enfa_eps(it);
     for (const auto& cur_it : eps_set)
@@ -135,9 +148,10 @@ CENFAutomaton::next_enfa_set(CENFAutomaton::TIter it, std::size_t symb)
     return result;
 }
 
-std::unordered_map<CENFAutomaton::TIter, std::size_t, 
-                   CENFAutomaton::SNodeListItHash> 
-CENFAutomaton::node_list_map()
+template<typename TSymb>
+std::unordered_map<typename CENFAutomaton<TSymb>::TIter, std::size_t, 
+                   typename CENFAutomaton<TSymb>::SNodeListItHash> 
+CENFAutomaton<TSymb>::node_list_map()
 {
     std::unordered_map<TIter, std::size_t, SNodeListItHash> result;
 
@@ -151,8 +165,9 @@ CENFAutomaton::node_list_map()
     return result;
 }
 
-std::vector<CENFAutomaton::TIter> 
-CENFAutomaton::node_list_vec()
+template<typename TSymb>
+std::vector<typename CENFAutomaton<TSymb>::TIter> 
+CENFAutomaton<TSymb>::node_list_vec()
 {
     auto result = std::vector<TIter>(node_list_.size());
 
@@ -166,19 +181,21 @@ CENFAutomaton::node_list_vec()
     return result;
 };
 
-CENFAutomaton make_str_enfa(std::size_t symb)
+template<typename TSymb>
+CENFAutomaton<TSymb> make_str_enfa(const TSymb& symb)
 {
-    auto node_list = std::list<CENFAutomaton::SNode>(2u);
+    auto node_list = std::list<typename CENFAutomaton<TSymb>::SNode>(2u);
 
     auto start_it = node_list.begin(); 
     auto accepting_it = std::prev(node_list.end());
 
     start_it->edge_map.insert(std::make_pair(symb, accepting_it));
 
-    return CENFAutomaton(std::move(node_list));
+    return CENFAutomaton<TSymb>(std::move(node_list));
 }
 
-CENFAutomaton make_opt_enfa(CENFAutomaton&& root_enfa)
+template<typename TSymb>
+CENFAutomaton<TSymb> make_opt_enfa(CENFAutomaton<TSymb>&& root_enfa)
 {
     auto node_list = std::move(root_enfa.node_list());
     node_list.emplace_front();
@@ -193,10 +210,11 @@ CENFAutomaton make_opt_enfa(CENFAutomaton&& root_enfa)
     new_start_it->eps_edge_set.insert(new_accepting_it);
     old_accepting_it->eps_edge_set.insert(new_accepting_it);
 
-    return CENFAutomaton(std::move(node_list)); 
+    return CENFAutomaton<TSymb>(std::move(node_list)); 
 }
 
-CENFAutomaton make_rep_enfa(CENFAutomaton&& root_enfa)
+template<typename TSymb>
+CENFAutomaton<TSymb> make_rep_enfa(CENFAutomaton<TSymb>&& root_enfa)
 {
     auto node_list = std::move(root_enfa.node_list());
     node_list.emplace_front();
@@ -212,13 +230,14 @@ CENFAutomaton make_rep_enfa(CENFAutomaton&& root_enfa)
     old_accepting_it->eps_edge_set.insert(new_accepting_it);
     old_accepting_it->eps_edge_set.insert(old_start_it);
 
-    return CENFAutomaton(std::move(node_list)); 
+    return CENFAutomaton<TSymb>(std::move(node_list)); 
 }
 
-CENFAutomaton make_sum_enfa(CENFAutomaton&& left_enfa, 
-                            CENFAutomaton&& right_enfa)
+template<typename TSymb>
+CENFAutomaton<TSymb> make_sum_enfa(CENFAutomaton<TSymb>&& left_enfa, 
+                                   CENFAutomaton<TSymb>&& right_enfa)
 {
-    auto node_list = std::list<CENFAutomaton::SNode>(2u);
+    auto node_list = std::list<typename CENFAutomaton<TSymb>::SNode>(2u);
 
     auto left_list = std::move(left_enfa.node_list());
     auto right_list = std::move(right_enfa.node_list());
@@ -240,13 +259,14 @@ CENFAutomaton make_sum_enfa(CENFAutomaton&& left_enfa,
     left_accepting_it->eps_edge_set.insert(new_accepting_it);
     right_accepting_it->eps_edge_set.insert(new_accepting_it);
 
-    return CENFAutomaton(std::move(node_list)); 
+    return CENFAutomaton<TSymb>(std::move(node_list)); 
 }
 
-CENFAutomaton make_cat_enfa(CENFAutomaton&& left_enfa, 
-                            CENFAutomaton&& right_enfa)
+template<typename TSymb>
+CENFAutomaton<TSymb> make_cat_enfa(CENFAutomaton<TSymb>&& left_enfa, 
+                                   CENFAutomaton<TSymb>&& right_enfa)
 {
-    auto node_list = std::list<CENFAutomaton::SNode>();
+    auto node_list = std::list<typename CENFAutomaton<TSymb>::SNode>();
 
     auto left_list = std::move(left_enfa.node_list());
     auto right_list = std::move(right_enfa.node_list());
@@ -260,19 +280,19 @@ CENFAutomaton make_cat_enfa(CENFAutomaton&& left_enfa,
 
     left_accepting_it->eps_edge_set.insert(right_start_it);
 
-    return CENFAutomaton(std::move(node_list)); 
+    return CENFAutomaton<TSymb>(std::move(node_list)); 
 }
 
-bool enfa_read_str(CENFAutomaton& enfa, std::string_view str)
+bool enfa_read_str(CENFAutomaton<char>& enfa, std::string_view str)
 {
     bool result = true;
 
-    std::unordered_set<CENFAutomaton::TIter, 
-                       CENFAutomaton::SNodeListItHash> old_set;
+    std::unordered_set<CENFAutomaton<char>::TIter, 
+                       CENFAutomaton<char>::SNodeListItHash> old_set;
     old_set = enfa.next_enfa_eps(enfa.start_it());
 
-    std::unordered_set<CENFAutomaton::TIter, 
-                       CENFAutomaton::SNodeListItHash> new_set;
+    std::unordered_set<CENFAutomaton<char>::TIter, 
+                       CENFAutomaton<char>::SNodeListItHash> new_set;
     for (char symb : str)
     {
         for (const auto& it : old_set)
